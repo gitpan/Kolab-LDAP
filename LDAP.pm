@@ -4,12 +4,6 @@ package Kolab::LDAP;
 ##  Copyright (c) 2003  Code Fusion cc
 ##
 ##    Writen by Stuart Bingë  <s.binge@codefusion.co.za>
-##    Portions based on work by the following people:
-##
-##      (c) 2003  Tassilo Erlewein  <tassilo.erlewein@erfrakon.de>
-##      (c) 2003  Martin Konold     <martin.konold@erfrakon.de>
-##      (c) 2003  Achim Frank       <achim.frank@erfrakon.de>
-##
 ##
 ##  This  program is free  software; you can redistribute  it and/or
 ##  modify it  under the terms of the GNU  General Public License as
@@ -33,6 +27,7 @@ use DB_File;
 use Kolab;
 use Kolab::Util;
 use Kolab::Cyrus;
+use Kolab::DirServ;
 use vars qw(%uid_db %gyard_db %newuid_db %gyard_ts_db);
 
 require Exporter;
@@ -60,7 +55,7 @@ our @EXPORT = qw(
 
 );
 
-our $VERSION = '0.01';
+our $VERSION = '0.9';
 
 sub startup
 {
@@ -123,7 +118,7 @@ sub create
     );
     if ($ldapmesg->code) {
         Kolab::log('L', "Unable to bind to `$dn', LDAP Error = `" . $ldapmesg->error . "'", KOLAB_ERROR);
-        exit(1);
+        if ($as) { return 0; } else { exit(1); }
     }
 
     return $ldap;
@@ -157,8 +152,9 @@ sub isObject
     my $object = shift;
     my $class = shift;
 
-    my @classes = $object->get_value('objectClass') || ();
-    foreach my $oc (@classes) {
+    my $classes = $object->get_value('objectClass', asref => 1);
+    return 0 if !defined($classes);
+    foreach my $oc (@$classes) {
         if ($oc =~ /$class/i) {
             return 1;
         }
@@ -205,6 +201,7 @@ sub createObject
             Kolab::log('L', "Object `$uid' already exists as `$olduid'; refusing to create", KOLAB_WARN);
         }
         # Nothing changed; nothing to do
+        #Kolab::DirServ::genericRequest($object, "modify alias");
     } else {
         # No official records - check the graveyard
         my $oldgyarduid = $gyard_db{$guid} || '';
@@ -225,12 +222,14 @@ sub createObject
             # We have a object that we have no previous record of, so create everything
             if ($sync) { $newuid_db{$guid} = $uid; } else { $uid_db{$guid} = $uid; }
             Kolab::Cyrus::createMailbox($cyrus, $uid, ($p eq 'sf' ? 1 : 0));
+
+            Kolab::DirServ::genericRequest($object, "new alias") if $p eq 'user';
         }
     }
 
     if ($doacls) {
-        my @acls = $object->get_value('acl');
-        Kolab::Cyrus::setACL($cyrus, $uid, ($p eq 'sf' ? 1 : 0), @acls);
+        my $acls = $object->get_value('acl', 'asref' => 1);
+        Kolab::Cyrus::setACL($cyrus, $uid, ($p eq 'sf' ? 1 : 0), $acls);
     }
 
     my $quota = $object->get_value($Kolab::config{$p . '_field_quota'});
@@ -265,6 +264,8 @@ sub deleteObject
         Kolab::Util::log('L', 'Deleted object not found in mboxcache, returning', KOLAB_DEBUG);
         return;
     }
+
+    Kolab::DirServ::genericRequest($object, "remove alias") if $p eq 'user';
 
     Kolab::Cyrus::deleteMailbox($cyrus, $uid, ($p eq 'sf' ? 1 : 0));
     delete $uid_db{$guid};
@@ -410,54 +411,32 @@ __END__
 
 =head1 NAME
 
-Kolab::LDAP - Perl extension for blah blah blah
-
-=head1 SYNOPSIS
-
-  use Kolab::LDAP;
-  blah blah blah
+Kolab::LDAP - Perl extension for generic LDAP code
 
 =head1 ABSTRACT
 
-  This should be the abstract for Kolab::LDAP.
-  The abstract is used when making PPD (Perl Package Description) files.
-  If you don't want an ABSTRACT you should also edit Makefile.PL to
-  remove the ABSTRACT_FROM option.
-
-=head1 DESCRIPTION
-
-Stub documentation for Kolab::LDAP, created by h2xs. It looks like the
-author of the extension was negligent enough to leave the stub
-unedited.
-
-Blah blah blah.
-
-=head2 EXPORT
-
-None by default.
-
-
-
-=head1 SEE ALSO
-
-Mention other useful documentation such as the documentation of
-related modules or operating system documentation (such as man pages
-in UNIX), or any relevant external documentation such as RFCs or
-standards.
-
-If you have a mailing list set up for your module, mention it here.
-
-If you have a web site set up for your module, mention it here.
+  Kolab::LDAP contains functions used to create/delete objects,
+  as well as synchronise LDAP and Cyrus.
 
 =head1 AUTHOR
 
-root, E<lt>root@(none)E<gt>
+Stuart Bingë, E<lt>s.binge@codefusion.co.zaE<gt>
 
 =head1 COPYRIGHT AND LICENSE
 
-Copyright 2003 by root
+Copyright (c) 2003  Code Fusion cc
 
-This library is free software; you can redistribute it and/or modify
-it under the same terms as Perl itself. 
+This  program is free  software; you can redistribute  it and/or
+modify it  under the terms of the GNU  General Public License as
+published by the  Free Software Foundation; either version 2, or
+(at your option) any later version.
+
+This program is  distributed in the hope that it will be useful,
+but WITHOUT  ANY WARRANTY; without even the  implied warranty of
+MERCHANTABILITY or FITNESS FOR A PARTICULAR PURPOSE. See the GNU
+General Public License for more details.
+
+You can view the  GNU General Public License, online, at the GNU
+Project's homepage; see <http://www.gnu.org/licenses/gpl.html>.
 
 =cut
