@@ -55,7 +55,7 @@ our @EXPORT = qw(
 
 );
 
-our $VERSION = sprintf('%d.%02d', q$Revision: 1.1.1.1 $ =~ /(\d+)\.(\d+)/);
+our $VERSION = '1.02';
 
 sub startup
 {
