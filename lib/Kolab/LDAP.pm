@@ -55,7 +55,7 @@ our @EXPORT = qw(
 
 );
 
-our $VERSION = '0.9';
+our $VERSION = sprintf('%d.%02d', q$Revision: 1.1.1.1 $ =~ /(\d+)\.(\d+)/);
 
 sub startup
 {
@@ -242,7 +242,7 @@ sub deleteObject
     # deletion, as we nuke the mailbox
     #
     # The graveyard code will handle the case of an object `going missing'.
-    
+
     my $ldap = shift;
     my $cyrus = shift;
     my $object = shift;

@@ -1,7 +1,7 @@
 Changes
-LDAP.pm
 Makefile.PL
 MANIFEST
 README
-t/1.t
+t/Kolab-LDAP.t
+lib/Kolab/LDAP.pm
 META.yml                                 Module meta-data (added by MakeMaker)
